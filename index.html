@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riddhi's Birthday Adventure</title>
+<style>
+body { margin:0; font-family: Arial, sans-serif; overflow:hidden; background:#a0e7e5; }
+canvas { display:block; margin:0 auto; background:#8ecae6; }
+#startScreen, #celebrationScreen {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
+  background:rgba(0,0,0,0.7); color:white; font-size:2em; z-index:10; text-align:center;
+}
+button { padding:10px 20px; font-size:1em; margin-top:20px; cursor:pointer; }
+.letterPopup {
+  position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+  background:white; color:black; padding:20px; border-radius:10px; z-index:20;
+  display:none; width:300px; text-align:center; box-shadow:0 0 10px black;
+}
+.confetti {
+  position:absolute; width:10px; height:10px; background:red; z-index:30; pointer-events:none;
+  animation:fall 2s linear infinite;
+}
+@keyframes fall {
+  0% { transform: translateY(0) rotate(0deg);}
+  100% { transform: translateY(500px) rotate(360deg);}
+}
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <div>Happy Birthday, Maharani Ji 🎀</div>
+  <button onclick="startGame()">Start Adventure</button>
+</div>
+
+<div id="celebrationScreen" style="display:none;">
+  <div>Congratulations! All gifts collected 🎉</div>
+  <div>Your final letter has arrived 💌</div>
+  <button onclick="restartGame()">Play Again</button>
+</div>
+
+<div id="letter" class="letterPopup"></div>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<audio id="bgMusic" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
+<audio id="collectSound" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const bgMusic = document.getElementById("bgMusic");
+const collectSound = document.getElementById("collectSound");
+
+let player = {x:50, y:50, size:30, color:"#ffb703"};
+let collectibles = [];
+let score = 0;
+let gameInterval;
+let gameRunning = false;
+
+const letters = [
+  "Hello Maharani Ji! 🎀 This is your first gift!",
+  "You’re amazing and deserve all the happiness 💖",
+  "Each gift brings you closer to your surprise 💌",
+  "Almost there! Keep going, DD 🥰",
+  "You found all gifts! Open your final letter below ❤️"
+];
+
+function createCollectibles() {
+  collectibles = [];
+  for (let i = 0; i < letters.length; i++) {
+    collectibles.push({
+      x: Math.random() * (canvas.width - 20),
+      y: Math.random() * (canvas.height - 20),
+      size: 20,
+      color: "#fb8500",
+      letter: letters[i],
+      collected: false,
+      angle: Math.random()*360,
+      speed: Math.random()*2+0.5
+    });
+  }
+}
+
+function drawPlayer() {
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+}
+
+function drawCollectibles() {
+  collectibles.forEach(c => {
+    if(!c.collected){
+      ctx.save();
+      ctx.translate(c.x + c.size/2, c.y + c.size/2);
+      ctx.rotate(c.angle * Math.PI / 180);
+      ctx.fillStyle = c.color;
+      ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
+      ctx.restore();
+      c.angle += c.speed;
+    }
+  });
+}
+
+function drawScore() {
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Gifts collected: " + score + "/" + collectibles.length, 10, 25);
+}
+
+function checkCollision() {
+  collectibles.forEach((c, index) => {
+    if(!c.collected &&
+       player.x < c.x + c.size &&
+       player.x + player.size > c.x &&
+       player.y < c.y + c.size &&
+       player.y + player.size > c.y){
+      c.collected = true;
+      score++;
+      collectSound.play();
+      showLetter(c.letter);
+      if(score === collectibles.length){
+        endGame();
+      }
+    }
+  });
+}
+
+function showLetter(text){
+  const letterDiv = document.getElementById("letter");
+  letterDiv.innerText = text;
+  letterDiv.style.display = "block";
+  setTimeout(()=>{letterDiv.style.display="none";},3000);
+}
+
+function gameLoop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawPlayer();
+  drawCollectibles();
+  drawScore();
+}
+
+document.addEventListener("keydown",(e)=>{
+  if(!gameRunning) return;
+  const step = 10;
+  if(e.key === "ArrowUp") player.y -= step;
+  if(e.key === "ArrowDown") player.y += step;
+  if(e.key === "ArrowLeft") player.x -= step;
+  if(e.key === "ArrowRight") player.x += step;
+
+  player.x = Math.max(0, Math.min(canvas.width-player.size, player.x));
+  player.y = Math.max(0, Math.min(canvas.height-player.size, player.y));
+});
+
+function startGame(){
+  document.getElementById("startScreen").style.display="none";
+  document.getElementById("celebrationScreen").style.display="none";
+  score=0;
+  player.x=50; player.y=50;
+  gameRunning=true;
+  createCollectibles();
+  bgMusic.play();
+  gameInterval = setInterval(gameLoop,50);
+}
+
+function endGame(){
+  gameRunning=false;
+  clearInterval(gameInterval);
+  bgMusic.pause();
+  document.getElementById("celebrationScreen").style.display="flex";
+  createConfetti(100);
+}
+
+function restartGame(){
+  startGame();
+  document.querySelectorAll(".confetti").forEach(c => c.remove());
+}
+
+// Confetti animation
+function createConfetti(amount){
+  for(let i=0;i<amount;i++){
+    const confetti = document.createElement("div");
+    confetti.classList.add("confetti");
+    confetti.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+    confetti.style.left = Math.random()*window.innerWidth + "px";
+    confetti.style.top = Math.random()*-500 + "px";
+    confetti.style.width = Math.random()*10+5+"px";
+    confetti.style.height = confetti.style.width;
+    confetti.style.animationDuration = (Math.random()*3+2) + "s";
+    document.body.appendChild(confetti);
+    setTimeout(()=>{confetti.remove()},5000);
+  }
+}
+</script>
+
+</body>
+</html>
